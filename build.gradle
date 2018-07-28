@@ -1,0 +1,180 @@
+buildscript {
+  ext {
+    springBootVersion = "1.5.14.RELEASE"
+  }
+  repositories {
+    jcenter()
+    maven { url "https://plugins.gradle.org/m2/" }
+  }
+  dependencies {
+    classpath "org.springframework.boot:spring-boot-gradle-plugin:$springBootVersion"
+    classpath "com.diffplug.spotless:spotless-plugin-gradle:3.13.0"
+    classpath "de.thetaphi:forbiddenapis:2.5"
+    classpath "gradle.plugin.com.github.spotbugs:spotbugs-gradle-plugin:1.6.2"
+    classpath "io.spring.gradle:dependency-management-plugin:1.0.4.RELEASE"
+  }
+}
+
+apply plugin: "java"
+apply plugin: "idea"
+apply plugin: "com.github.spotbugs"
+apply plugin: "jacoco"
+apply plugin: "de.thetaphi.forbiddenapis"
+apply plugin: "org.springframework.boot"
+apply plugin: "com.diffplug.gradle.spotless"
+apply plugin: "io.spring.dependency-management"
+
+group = "com.github.wreulicke"
+version = "0.0.1-SNAPSHOT"
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+  mavenCentral()
+}
+
+jacocoTestReport {
+  reports {
+    xml.enabled true
+    csv.enabled true
+  }
+}
+
+test {
+  useJUnitPlatform {
+    includeEngines 'junit-jupiter', 'junit-vintage'
+  }
+}
+
+spotless {
+  def headerFile = "/** " + project.file("./LICENSE.md").text + "*/"
+
+  java {
+    licenseHeader headerFile, "(package|import)"
+    eclipse().configFile project.file("eclipse-format-setting.xml")
+    trimTrailingWhitespace()
+    endWithNewline()
+    removeUnusedImports()
+  }
+
+  format 'misc', {
+    target '*.gradle'
+
+    indentWithSpaces(2)
+    endWithNewline()
+  }
+}
+
+
+forbiddenApisMain {
+  bundledSignatures += [
+    'jdk-system-out',
+    'jdk-unsafe-' + project.sourceCompatibility,
+    'jdk-internal-' + project.sourceCompatibility
+  ]
+  ignoreFailures = false
+}
+
+forbiddenApisTest {
+  bundledSignatures += [
+    'jdk-system-out',
+    'jdk-unsafe-' + project.sourceCompatibility,
+    'jdk-internal-' + project.sourceCompatibility
+  ]
+  ignoreFailures = false
+}
+
+spotbugs {
+  toolVersion = '3.1.5'
+}
+
+tasks.withType(com.github.spotbugs.SpotBugsTask) {
+  reports {
+    xml.enabled = false
+    html.enabled = true
+  }
+}
+
+def defaultEncoding = 'UTF-8'
+
+tasks.withType(AbstractCompile).each {
+  it.options.encoding = defaultEncoding
+}
+
+
+bootRun {
+  if (project.hasProperty('args')) {
+    args project.args.split('\\s+')
+  }
+}
+
+dependencyManagement {
+  imports {
+    mavenBom "org.zalando:tracer-bom:0.17.0"
+  }
+}
+
+
+dependencies {
+  compile "org.springframework.boot:spring-boot-starter-actuator"
+  compile "org.springframework.boot:spring-boot-starter-web"
+  compile "org.springframework.boot:spring-boot-starter-security"
+  compile "org.springframework.boot:spring-boot-starter-aop"
+  compile "org.springframework.boot:spring-boot-devtools"
+
+  annotationProcessor "org.springframework.boot:spring-boot-configuration-processor"
+
+  compile "com.fasterxml.jackson.module:jackson-module-parameter-names"
+  compile "com.fasterxml.jackson.datatype:jackson-datatype-jdk8"
+  compile "com.fasterxml.jackson.datatype:jackson-datatype-jsr310"
+
+  // micrometer
+  compile "io.micrometer:micrometer-spring-legacy:1.0.1"
+  compile "io.micrometer:micrometer-registry-prometheus:1.0.1"
+
+  // database
+  compile "mysql:mysql-connector-java"
+  testCompile "com.wix:wix-embedded-mysql:4.1.0"
+  testRuntime "com.h2database:h2"
+  compile "com.zaxxer:HikariCP:2.7.8"
+
+  // for logging
+  compile "ch.qos.logback.contrib:logback-json-core:0.1.5"
+  compile "ch.qos.logback.contrib:logback-json-classic:0.1.5"
+  compile "ch.qos.logback.contrib:logback-jackson:0.1.5"
+
+  // tracer
+  compile "org.zalando:tracer-spring-boot-starter:0.17.0"
+  testCompile "org.zalando:tracer-junit"
+
+  compileOnly "org.projectlombok:lombok:1.16.20"
+  annotationProcessor "org.projectlombok:lombok:1.16.20"
+  testCompileOnly "org.projectlombok:lombok:1.16.20"
+  testAnnotationProcessor "org.projectlombok:lombok:1.16.20"
+
+  // for development
+  runtime "org.springframework.boot:spring-boot-devtools"
+
+  // for test
+  testCompile "org.springframework.boot:spring-boot-starter-test"
+  testCompile "org.springframework.security:spring-security-test"
+  testCompile "org.assertj:assertj-core:3.9.0"
+  testCompile "org.mockito:mockito-core:2.20.1"
+
+  // use as test framework
+  testCompile 'org.junit.jupiter:junit-jupiter-api:5.1.0'
+  testRuntime 'org.junit.jupiter:junit-jupiter-engine:5.1.0'
+  testRuntime 'org.junit.vintage:junit-vintage-engine:5.1.0'
+}
+
+configurations.all {
+    exclude group: 'log4j' // = Log4j implementation.
+    exclude module: 'log4j-slf4j-impl' // = SLF4J > Log4J Implementation. (Apache Side)
+    exclude module: 'slf4j-log4j12' // = SLF4J > Log4J Implementation. (SLF4J Side)
+    exclude module: 'log4j-over-slf4j' // = Old Log4j 1&2 > SLF4J
+    exclude module: 'slf4j-jdk14' // = SLF4J > JDK14 Binding
+    exclude module: 'commons-logging' // Because bridged by jcl-over-slf4j
+    exclude module: 'commons-logging-api' // Replaced by jcl-over-slf4j
+    // use junit5
+    exclude module: 'junit'
+}

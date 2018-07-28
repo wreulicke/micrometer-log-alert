@@ -1,0 +1,10 @@
+groups:
+- name: example
+  rules:
+  - alert: ErrorLoggingAlert
+    expr: logback_events_total{level="warn"} > 1
+    for: 1s
+    labels:
+      severity: page
+    annotations:
+      summary: Error Log is found.
